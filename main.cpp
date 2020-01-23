@@ -71,11 +71,70 @@ vector<ll> merge(vector<vector<ll>> &arr)
 	return sorted_arr;
 }
 
+void take_input(ifstream& infile, ll& n, vector<ll>& arr)
+{
+	while(infile)
+	{
+		string data;
+		infile>>data;
+		if(data=="")
+			break;
+		arr.pb(stoll(data));
+		n++;
+	}
+	return;
+}
+
+void send_chunks(ll n, vector<ll>& arr, ll numprocs)
+{
+	ll seg_len = n/numprocs;
+    for(ll pid = 1;pid < numprocs;pid++)
+    {
+    	ll start_idx = seg_len*(pid-1);
+	    ll numbers_cnt;
+    	if(pid==numprocs-1)
+    		numbers_cnt = n - start_idx;
+    	else
+	    	numbers_cnt = seg_len*pid - start_idx;
+
+	    MPI_Send(&numbers_cnt, 1, MPI_LONG, pid, send_data_tag, MPI_COMM_WORLD);
+	    MPI_Send(&arr[start_idx], numbers_cnt, MPI_LONG, pid, send_data_tag, MPI_COMM_WORLD);
+    }
+    return;
+}
+
+vector<vector<ll>> receive_sorted_arrays(ll numprocs, ll n)
+{
+	MPI_Status status;
+	vector<vector<ll>> rec_arrs;
+	ll seg_len = n/numprocs;
+    for(ll pid = 1;pid < numprocs;pid++)
+    {
+    	ll start_idx = seg_len*(pid-1);
+	    ll numbers_cnt;
+    	if(pid==numprocs-1)
+    		numbers_cnt = n - start_idx;
+    	else
+	    	numbers_cnt = seg_len*pid - start_idx;
+
+	    vector<ll> rec_tmp(numbers_cnt);
+	    MPI_Recv(&rec_tmp[0], numbers_cnt, MPI_LONG, pid, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+	    rec_arrs.pb(rec_tmp);
+    }
+    return rec_arrs;
+}
+
+void store_output(ofstream& outfile, vector<ll> &sorted_arr)
+{
+    for(ll i=0;i<sz(sorted_arr);i++)
+    	outfile<<sorted_arr[i]<<" ";
+    outfile<<endl;
+}
+
 int main( int argc, char **argv ) {
 	srand (time(NULL));
 	int rank, numprocs;
 	int root_process = 0;
-	int ierr;
 	MPI_Status status;
 	ll i;
     /* start up MPI */
@@ -92,67 +151,34 @@ int main( int argc, char **argv ) {
 
     if(rank==root_process)
     {
-    	ll n;
-    	cin>>n;
-    	vector<ll> arr;
+    	ifstream infile;
+    	infile.open(argv[2]);
+    	ll n=0;
     	ll i;
-    	for(i=0;i<n;i++)
-    	{
-    		ll val;
-    		cin>>val;
-    		arr.pb(val);
-    	}
-    	ll seg_len = n/numprocs;
-	    for(ll pid = 1;pid < numprocs;pid++)
-	    {
-	    	ll start_idx = seg_len*(pid-1);
-		    ll numbers_cnt;
-	    	if(pid==numprocs-1)
-	    		numbers_cnt = n - start_idx;
-	    	else
-		    	numbers_cnt = seg_len*pid - start_idx;
+    	vector<ll> arr;
 
-		    ierr = MPI_Send(&numbers_cnt, 1, MPI_LONG, pid, send_data_tag, MPI_COMM_WORLD);
-		    ierr = MPI_Send(&arr[start_idx], numbers_cnt, MPI_LONG, pid, send_data_tag, MPI_COMM_WORLD);
-	    }
-
-	    vector<vector<ll>> rec_arrs;
-
-
-	    for(ll pid = 1;pid < numprocs;pid++)
-	    {
-	    	ll start_idx = seg_len*(pid-1);
-		    ll numbers_cnt;
-	    	if(pid==numprocs-1)
-	    		numbers_cnt = n - start_idx;
-	    	else
-		    	numbers_cnt = seg_len*pid - start_idx;
-
-		    vector<ll> rec_tmp(numbers_cnt);
-		    ierr = MPI_Recv(&rec_tmp[0], numbers_cnt, MPI_LONG, pid, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-		    rec_arrs.pb(rec_tmp);
-	    }
-
+    	take_input(infile, n, arr);
+    	send_chunks(n, arr, numprocs);
+	    MPI_Barrier( MPI_COMM_WORLD );
+	    vector<vector<ll>> rec_arrs = receive_sorted_arrays(numprocs, n);
 	    vector<ll> sorted_arr = merge(rec_arrs);
 
-	    for(i=0;i<sz(sorted_arr);i++)
-	    	cout<<sorted_arr[i]<<" ";
-	    cout<<endl;
-
+	   	ofstream outfile;
+	   	outfile.open(argv[3]);
+	   	store_output(outfile, sorted_arr);
     }
     else
     {
     	ll seg_len;
-    	ierr = MPI_Recv(&seg_len, 1, MPI_LONG, root_process, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+    	MPI_Recv(&seg_len, 1, MPI_LONG, root_process, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
     	vector<ll> arr(seg_len+1);
     	// ll arr[seg_len + 1];
-    	ierr = MPI_Recv(&arr[0], seg_len, MPI_LONG, root_process, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+    	MPI_Recv(&arr[0], seg_len, MPI_LONG, root_process, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
     	quick_sort(arr, 0, seg_len-1);
+	    MPI_Barrier( MPI_COMM_WORLD );
 
-
-    	ierr = MPI_Send(&arr[0], seg_len, MPI_LONG, root_process, send_data_tag, MPI_COMM_WORLD);
-
+    	MPI_Send(&arr[0], seg_len, MPI_LONG, root_process, send_data_tag, MPI_COMM_WORLD);
     }
 
 
