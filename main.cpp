@@ -97,8 +97,8 @@ void send_chunks(ll n, vector<ll>& arr, ll numprocs)
     	else
 	    	numbers_cnt = seg_len*pid - start_idx;
 
-	    MPI_Send(&numbers_cnt, 1, MPI_LONG, pid, send_data_tag, MPI_COMM_WORLD);
-	    MPI_Send(&arr[start_idx], numbers_cnt, MPI_LONG, pid, send_data_tag, MPI_COMM_WORLD);
+	    MPI_Send(&numbers_cnt, 1, MPI_LONG_LONG, pid, send_data_tag, MPI_COMM_WORLD);
+	    MPI_Send(&arr[start_idx], numbers_cnt, MPI_LONG_LONG, pid, send_data_tag, MPI_COMM_WORLD);
     }
     return;
 }
@@ -118,7 +118,7 @@ vector<vector<ll>> receive_sorted_arrays(ll numprocs, ll n)
 	    	numbers_cnt = seg_len*pid - start_idx;
 
 	    vector<ll> rec_tmp(numbers_cnt);
-	    MPI_Recv(&rec_tmp[0], numbers_cnt, MPI_LONG, pid, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+	    MPI_Recv(&rec_tmp[0], numbers_cnt, MPI_LONG_LONG, pid, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 	    rec_arrs.pb(rec_tmp);
     }
     return rec_arrs;
@@ -170,15 +170,14 @@ int main( int argc, char **argv ) {
     else
     {
     	ll seg_len;
-    	MPI_Recv(&seg_len, 1, MPI_LONG, root_process, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+    	MPI_Recv(&seg_len, 1, MPI_LONG_LONG, root_process, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
     	vector<ll> arr(seg_len+1);
-    	// ll arr[seg_len + 1];
-    	MPI_Recv(&arr[0], seg_len, MPI_LONG, root_process, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+    	MPI_Recv(&arr[0], seg_len, MPI_LONG_LONG, root_process, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
     	quick_sort(arr, 0, seg_len-1);
 	    MPI_Barrier( MPI_COMM_WORLD );
 
-    	MPI_Send(&arr[0], seg_len, MPI_LONG, root_process, send_data_tag, MPI_COMM_WORLD);
+    	MPI_Send(&arr[0], seg_len, MPI_LONG_LONG, root_process, send_data_tag, MPI_COMM_WORLD);
     }
 
 
